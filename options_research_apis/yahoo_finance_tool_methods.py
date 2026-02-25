@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -84,12 +85,20 @@ class YahooOptionsTradingScript:
         option_type: str = "both",
         limit: Optional[int] = None,
         sort_by: str = "open_interest",
+        min_open_interest: int = 0,
+        min_volume: int = 0,
+        min_strike: Optional[float] = None,
+        max_strike: Optional[float] = None,
+        moneyness: Optional[str] = None,
     ) -> Dict[str, object]:
         expiration = expiration or self.get_expirations()[0]
         spot = self.get_spot_price()
         chain = self.get_option_chain(expiration)
         calls = chain["calls"]
         puts = chain["puts"]
+
+        calls = self._filter_contracts(calls, min_open_interest, min_volume, min_strike, max_strike, spot, moneyness)
+        puts = self._filter_contracts(puts, min_open_interest, min_volume, min_strike, max_strike, spot, moneyness)
 
         detail = {
             "symbol": self.symbol,
@@ -306,6 +315,35 @@ class YahooOptionsTradingScript:
         return max(delta.days, 0)
 
     @staticmethod
+    def _filter_contracts(
+        contracts: Sequence[OptionContract],
+        min_open_interest: int = 0,
+        min_volume: int = 0,
+        min_strike: Optional[float] = None,
+        max_strike: Optional[float] = None,
+        spot: Optional[float] = None,
+        moneyness: Optional[str] = None,
+    ) -> List[OptionContract]:
+        filtered = []
+        for c in contracts:
+            if min_open_interest > 0 and c.open_interest < min_open_interest:
+                continue
+            if min_volume > 0 and c.volume < min_volume:
+                continue
+            if min_strike is not None and c.strike < min_strike:
+                continue
+            if max_strike is not None and c.strike > max_strike:
+                continue
+            if moneyness and spot is not None:
+                is_itm = (c.option_type == "call" and c.strike < spot) or (c.option_type == "put" and c.strike > spot)
+                if moneyness == "itm" and not is_itm:
+                    continue
+                if moneyness == "otm" and is_itm:
+                    continue
+            filtered.append(c)
+        return filtered
+
+    @staticmethod
     def _pick_liquid_near_strike(
         contracts: Sequence[OptionContract],
         target_strike: float,
@@ -376,6 +414,42 @@ def _parse_args() -> argparse.Namespace:
         default="open_interest",
         help="When mode=chain, sorting field",
     )
+    parser.add_argument(
+        "--min-oi",
+        type=int,
+        default=0,
+        help="Minimum open interest filter (default: 0 = no filter)",
+    )
+    parser.add_argument(
+        "--min-volume",
+        type=int,
+        default=0,
+        help="Minimum volume filter (default: 0 = no filter)",
+    )
+    parser.add_argument(
+        "--min-strike",
+        type=float,
+        default=None,
+        help="Minimum strike price filter",
+    )
+    parser.add_argument(
+        "--max-strike",
+        type=float,
+        default=None,
+        help="Maximum strike price filter",
+    )
+    parser.add_argument(
+        "--moneyness",
+        choices=["itm", "otm", "all"],
+        default="all",
+        help="Filter by moneyness: itm (in-the-money), otm (out-of-the-money), or all",
+    )
+    parser.add_argument(
+        "--output",
+        choices=["pretty", "json"],
+        default="pretty",
+        help="Output format (default: pretty)",
+    )
     return parser.parse_args()
 
 
@@ -402,6 +476,12 @@ def _print_run_configuration(args: argparse.Namespace) -> None:
     print(f"{'option_type':>24}: {args.option_type}")
     print(f"{'limit':>24}: {limit_display}")
     print(f"{'sort_by':>24}: {args.sort_by}")
+    print(f"{'min_oi':>24}: {args.min_oi}")
+    print(f"{'min_volume':>24}: {args.min_volume}")
+    print(f"{'min_strike':>24}: {args.min_strike}")
+    print(f"{'max_strike':>24}: {args.max_strike}")
+    print(f"{'moneyness':>24}: {args.moneyness}")
+    print(f"{'output':>24}: {args.output}")
 
 
 def _print_chain_details(result: Dict[str, object], args: argparse.Namespace) -> None:
@@ -465,13 +545,22 @@ def main() -> None:
 
     if args.mode == "chain":
         selected_limit = None if args.limit <= 0 else args.limit
+        moneyness = None if args.moneyness == "all" else args.moneyness
         chain_details = script.get_detailed_chain(
             expiration=args.expiration,
             option_type=args.option_type,
             limit=selected_limit,
             sort_by=args.sort_by,
+            min_open_interest=args.min_oi,
+            min_volume=args.min_volume,
+            min_strike=args.min_strike,
+            max_strike=args.max_strike,
+            moneyness=moneyness,
         )
-        _print_chain_details(chain_details, args)
+        if args.output == "json":
+            print(json.dumps(chain_details, indent=2, default=str))
+        else:
+            _print_chain_details(chain_details, args)
     else:
         if args.strategy == "long_call":
             plan = script.build_long_call_plan(args.expiration)
@@ -479,7 +568,10 @@ def main() -> None:
             plan = script.build_long_put_plan(args.expiration)
         else:
             plan = script.build_covered_call_plan(args.expiration)
-        _print_plan(plan)
+        if args.output == "json":
+            print(json.dumps(plan, indent=2, default=str))
+        else:
+            _print_plan(plan)
 
 
 if __name__ == "__main__":
