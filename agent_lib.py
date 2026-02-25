@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from langgraph.graph import END, StateGraph
 
 from prompts import SYSTEM
+from secretgetter import secret_getter_cls
 from tools import run_python
 
 
@@ -21,8 +22,9 @@ class AgentState(TypedDict):
 
 def make_client():
     from openai import OpenAI
-
-    api_key = os.environ["OPENROUTER_API_KEY"].strip()
+    sgc = secret_getter_cls()
+    sv = sgc.get_action('openrouter-api-key')
+    api_key = sv.strip()
     return OpenAI(
         base_url="https://openrouter.ai/api/v1",
         api_key=api_key,

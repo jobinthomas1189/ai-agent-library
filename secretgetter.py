@@ -26,7 +26,7 @@ class secret_getter_cls:
  
 def main():
     sgc = secret_getter_cls()
-    sv = sgc.get_action('openaikey')
+    sv = sgc.get_action('openrouter-api-key')
     print(sv)
 
 if __name__ == '__main__':

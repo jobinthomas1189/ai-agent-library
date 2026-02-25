@@ -35,3 +35,6 @@ env/
 .vscode/
 .idea/
 aienv/
+
+
+scripts/local_gcp_env.sh
