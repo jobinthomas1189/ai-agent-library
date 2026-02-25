@@ -1,0 +1,1 @@
+GOOGLE_APPLICATION_CREDENTIALS=/home/datascientist11/sds/creds/finbot-408300-9dd5bdc48ac1.json
