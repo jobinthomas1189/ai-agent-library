@@ -64,6 +64,7 @@ A multi-step agent that:
 **Setup:**
 - Ensure GCP credentials are configured (`source scripts/local_gcp_env.sh`)
 - The Tavily API key is automatically retrieved from Secret Manager (key: `tavily`)
+- The Open Router API key is automatically retrieved from Secret Manager (key: `openrouter-api-key`)
 - Run section 4 in the notebook
 
 **Example questions:**
