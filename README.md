@@ -11,15 +11,27 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2) Configure OpenRouter
-Copy env template and fill in your key:
+### 2) Configure Environment
+
+#### Set GCP Credentials (for Secret Manager)
+Source the local GCP environment script to set `GOOGLE_APPLICATION_CREDENTIALS`:
+```bash
+source scripts/local_gcp_env.sh
+```
+
+#### Copy env template for optional settings:
 ```bash
 cp .env.example .env
 ```
 
 Set:
-- `OPENROUTER_API_KEY`
 - `OPENROUTER_MODEL` (default: `arcee-ai/trinity-large-preview:free`)
+
+**API Keys:** Both `OPENROUTER_API_KEY` and `TAVILY_API_KEY` are retrieved from Google Cloud Secret Manager by default (using keys `openrouter-api-key` and `tavily`). If GCP credentials aren't available, set them as environment variables:
+```bash
+export OPENROUTER_API_KEY=your_key_here
+export TAVILY_API_KEY=your_tavily_key_here
+```
 
 ### 3) Run notebook
 ```bash
@@ -50,9 +62,9 @@ A multi-step agent that:
 3. Synthesizes findings into a structured report
 
 **Setup:**
-1. Get free Tavily API key: https://tavily.com
-2. Add to `.env`: `TAVILY_API_KEY=tvly-xxxxx`
-3. Run section 4 in the notebook
+- Ensure GCP credentials are configured (`source scripts/local_gcp_env.sh`)
+- The Tavily API key is automatically retrieved from Secret Manager (key: `tavily`)
+- Run section 4 in the notebook
 
 **Example questions:**
 - "What are the latest trends in AI agents?"

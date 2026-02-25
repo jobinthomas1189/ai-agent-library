@@ -20,16 +20,28 @@ load_dotenv(dotenv_path=".env", override=False)
 
 
 def make_tavily_client() -> TavilyClient:
-    api_key = os.environ.get("TAVILY_API_KEY", "").strip()
+    # Try to get API key from Google Cloud Secret Manager, fallback to env var
+    try:
+        from secretgetter import secret_getter_cls
+        sgc = secret_getter_cls()
+        api_key = sgc.get_action('tavily')
+    except Exception:
+        api_key = os.environ.get("TAVILY_API_KEY", "").strip()
     if not api_key:
-        raise RuntimeError("Missing TAVILY_API_KEY. Put it in .env or env var.")
+        raise RuntimeError("Missing TAVILY_API_KEY. Set in env var or configure Secret Manager.")
     return TavilyClient(api_key=api_key)
 
 
 def make_llm_client() -> OpenAI:
-    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    # Try to get API key from Google Cloud Secret Manager, fallback to env var
+    try:
+        from secretgetter import secret_getter_cls
+        sgc = secret_getter_cls()
+        api_key = sgc.get_action('openrouter-api-key')
+    except Exception:
+        api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
     if not api_key:
-        raise RuntimeError("Missing OPENROUTER_API_KEY. Put it in .env or env var.")
+        raise RuntimeError("Missing OPENROUTER_API_KEY. Set in env var or configure Secret Manager.")
     return OpenAI(
         base_url="https://openrouter.ai/api/v1",
         api_key=api_key,
